@@ -1534,6 +1534,65 @@ Output files generated from the old template keep their old VBA until they're re
 
 ---
 
+## 27. `JSONBuilder.bas` / `mod_GlobalDataManager.bas` — `encumbranceTypeIdList` missing from Balance payloads (OISR-22689 / OISR-22690, reopens R6)
+
+**Symptoms:**
+- OISR-22689: on Encumbrance balances (actual flag `E` / `A+E`), Balance to Journal drilldown
+  returns no rows, while the same cell from the C# add-in returns journals.
+- OISR-22690: on Encumbrance balances, the Balance to Subledger totals (`Accounted_Dr` /
+  `Accounted_Cr`) don't match the balance.
+
+**Root cause:** C# `BalanceDtoModel` resolves the `;`-separated encumbrance names (formula
+argument 9) against the ledger's encumbrance types and sends
+`"encumbranceTypeIdList":[1001]`. VBA `BalanceJson` sent only `encumbranceName`, so the server
+did not filter by encumbrance type. R6 had been closed because the metadata sheet had no
+encumbrance table. The server now writes one to `OrbitSchMetadata`: **AD = `encumbranceTypeId`,
+AE = `encumbranceName`**, header in row 1. The xlsm reads it from the sheet and calls no API, in
+line with every other cube/ledger lookup.
+
+**Change:**
+- `mod_GlobalDataManager`:
+  - New private store `MasterEncumbranceIdsByName`, loaded as step 4 of
+    `InitializeGlobalMetadataEngine`. It reads rows 2 to the last used row of AD/AE, skips a row
+    with a blank name or ID, and keeps the first entry for a duplicate name.
+  - New public `GetEncumbranceTypeIds(names)` splits on `;` and skips unknown names, logging a
+    warning.
+  - Names are matched by `NormEncumbranceName`: trimmed (non-breaking spaces too) and
+    case-insensitive, on both the AE side and the formula side.
+  - IDs go through `EncumbranceIdValue`:
+    - A plain integer of up to 18 digits (`1000`) is sent as a number, like C#'s `long`.
+    - Leading zeros (`001`, `0012`), letters, or longer values stay as the trimmed string, so
+      the ID is never altered.
+    - Exception: VBA-JSON writes any all-digit string of 16-100 characters unquoted (an existing
+      global rule).
+- `JSONBuilder.BalanceJson`, in the `E` / `ENCUMBRANCE` / `A+E` / `ACTUAL+ENCUMBRANCE` branch:
+  - Adds `encumbranceTypeIdList` when at least one name matched. Otherwise the key is omitted,
+    the same as C#'s `null` + `WhenWritingNull`.
+  - `encumbranceName` is now trimmed, the same as C# `NormalizeStrings`.
+  - This applies to every balance-based drilldown (`BL`, `BL_JL`, `BL_SL`, `BLDD_SL`,
+    `BLDD_UF`).
+
+**Verified** on throwaway copies that have the reporter's `OrbitSchMetadata`:
+- With the 18 real types (999 Dossier … 1129 Loans Encumbrance):
+  - `E`/`  obligation ` sends `[1001]` and `encumbranceName` `"obligation"`.
+  - `A+E`/`Dossier ; COMMITMENT;…;Bogus` sends `[999, 1000]`.
+  - `A` omits the key.
+  - An unknown name omits the key.
+- With edge-case data, IDs come out as:
+  - text `001` → `"001"`
+  - text `0012` → `"0012"`
+  - text ` 1001 ` → `1001`
+  - number `1000` → `1000`
+  - `A-77` → `"A-77"`
+  - The row with a blank ID is skipped.
+  - Names `  commitment  `, `OBLIGATION` and `Alpha` + NBSP all match.
+- Without AD/AE (older output files) the key is omitted and nothing errors, which is the
+  previous behavior.
+
+The full project compiles clean.
+
+---
+
 ## Checked — not a bug, no action needed
 
 - **Activity ShortName normalization**: C# resolves the Activity formula argument against a
