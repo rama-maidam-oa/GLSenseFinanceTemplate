@@ -1593,6 +1593,29 @@ The full project compiles clean.
 
 ---
 
+## 28. `Declarations.bas` / `modFileLogger.bas` / `PublicSubs.bas` — template release date in the logs
+
+**Why:** reporters' output files can come from an older template build, and nothing in
+`GLFinanceLogs_*.log` showed which build wrote a log.
+
+**Change:**
+- `Declarations`: `Public Const TEMPLATE_RELEASE_DATE As String = "2026-10-16"`. **Update it on
+  every release, before signing.** A constant in the signed VBA is used rather than a document
+  property, because the server's save of an output file would change a property.
+- `modFileLogger.BuildHeaderLine`: the daily log header now reads
+  `… As On Friday, 16 October 2026. Template Release: 2026-10-16. Time Zone: …`.
+- `modFileLogger.FileLogReleaseSnapshot` (new) writes one `INFO` line, once per session:
+  - Line format: `Snapshot | Template release: 2026-10-16 | Workbook: <name> | Excel 16.0 64-bit | Server: <url> | CubeId: <id>`
+  - Server and CubeId are included only once they are known (after login).
+- `PublicSubs.DebugLogs` calls the snapshot when the **Debug Logs** button is switched on.
+
+**Verified** on a throwaway copy:
+- The header line shows the release.
+- Two snapshot calls write exactly one line.
+- The full project compiles clean.
+
+---
+
 ## Checked — not a bug, no action needed
 
 - **Activity ShortName normalization**: C# resolves the Activity formula argument against a
