@@ -1616,6 +1616,33 @@ The full project compiles clean.
 
 ---
 
+## 29. `PublicSubs.bas` / `DrilldataToWorksheet.bas` — journal drilldown for PJTD (OISR-22795, parent OISR-19531)
+
+The server now supports Journal / Subledger / Unified drilldown from a PJTD balance (orbitbootapp
+PR #798). A PJTD balances drilldown sheet returns a `PROJECT_TO_DATE_NET` amount column and a new
+hidden-key column `DRILL_DOWN4`. The template only knew PTD/YTD/QTD (`DRILL_DOWN1`–`3`), so
+selecting a `PROJECT_TO_DATE_NET` value gave "Invalid selection", and `DRILL_DOWN4` showed as a
+visible column with the raw `~~` key string. Same change as the add-in (`DD_JL.cs`,
+`DDDatatoWorksheet.cs`).
+
+**`PublicSubs.BuildJournalRequest`**
+- After `val = LCase(Replace(Trim(val), " ", "_"))` added:
+  `If Replace(val, "_", "") = "projecttodatenet" Or Replace(val, "_", "") = "pjtdnet" Then val = "project_to_date_net"`
+  (the header may come with or without underscores/spaces, in any case).
+- After `Case "quarter_to_date_net", "qtd_net": FoundCol = slDrillColumnIndex("3")` added:
+  `Case "project_to_date_net": FoundCol = slDrillColumnIndex("4")` (`slDrillColumnIndex` already
+  matches `DRILL_DOWN4` or `DRILLDOWN4`).
+- Both "Invalid selection" messages now list `PROJECT_TO_DATE_NET`.
+
+**`DrilldataToWorksheet` (hide system columns)**
+- `"DRILL_DOWN4", "DRILLDOWN4", _` added to the `Select Case` after `"DRILL_DOWN3", "DRILLDOWN3", _`.
+
+**Verified** on a scratch copy: each find matched exactly once, read-back confirmed, the full
+project compiles clean, and an olevba diff shows only these lines changed in code modules.
+Needs signing with `SignTemplate.bat` before commit.
+
+---
+
 ## Checked — not a bug, no action needed
 
 - **Activity ShortName normalization**: C# resolves the Activity formula argument against a
