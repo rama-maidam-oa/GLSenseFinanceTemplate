@@ -1634,6 +1634,9 @@ visible column with the raw `~~` key string. Same change as the add-in (`DD_JL.c
   matches `DRILL_DOWN4` or `DRILLDOWN4`).
 - Both "Invalid selection" messages now list `PROJECT_TO_DATE_NET`.
 
+**`Declarations`**
+- `TEMPLATE_RELEASE_DATE` set to `"2026-10-29"` for this release (see #28).
+
 **`DrilldataToWorksheet` (hide system columns)**
 - `"DRILL_DOWN4", "DRILLDOWN4", _` added to the `Select Case` after `"DRILL_DOWN3", "DRILLDOWN3", _`.
 
